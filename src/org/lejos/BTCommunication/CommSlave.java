@@ -1,6 +1,5 @@
 package org.lejos.BTCommunication;
 
-import lejos.nxt.LCD;
 import lejos.nxt.comm.Bluetooth;
 
 /**
@@ -20,15 +19,13 @@ public class CommSlave extends CommChannel{
     @Override
     public int connect(){
         super.connect();
-        LCD.drawString("Waiting...",0,0);
-        LCD.refresh();
+        Node.debugMessage("Waiting...",0,0);
         while (!connected){          
             nodeConnection = Bluetooth.waitForConnection();
             delay(100);
             connected = true;
         } 
-        LCD.clear();
-        LCD.drawString("Connected...",0,1);
+        Node.debugMessage("Connected...",0,1);
         return 1;
     }
 
@@ -37,14 +34,13 @@ public class CommSlave extends CommChannel{
     public void run() {        
         long n;
         threadRunning = true;
-        LCD.drawString("Starting Slave", 0, 4);
-        delay(50);
+        Node.debugMessage("Starting Slave",1000);
         for(int i=0;i<Node.COMMCOUNT;i++){				
-            n = readLongData(false);
-            writeLongData(System.currentTimeMillis(),false);
-            delay(5);
+            n = readLongData(true);
+            writeLongData(System.currentTimeMillis(),true);            
+            delay(10);
         }
-        threadRunning = false;
-        
+        Node.debugMessage("Slave Done",1000);
+        threadRunning = false;        
     }
 } 

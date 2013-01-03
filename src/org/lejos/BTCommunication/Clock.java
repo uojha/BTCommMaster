@@ -9,8 +9,9 @@ package org.lejos.BTCommunication;
  * @author Unnati
  */
 public class Clock {
-    private static boolean LOGSYNCDATA = false;
+    public final static boolean LOGSYNCDATA = false;
     public static boolean isSyncing = false;
+    
     private boolean syncStatus = Node.SYNCSTATUS_NOTSYNCED;   
     private long [][] sentTime = new long[Node.NUMCHANNELS][Node.SYNCWINDOW];
     private long [][] receivedTime = new long[Node.NUMCHANNELS][Node.SYNCWINDOW];
@@ -79,7 +80,8 @@ public class Clock {
             }else if (n==Node.SYNCPARAMS){
                 //store the synchronization parameters
                 propDelay = ch.readLongData(LOGSYNCDATA);
-                driftRoot = ch.readLongData(LOGSYNCDATA);
+                driftRoot = ch.readLongData(LOGSYNCDATA);   
+                ch.logData(driftRoot);
                 setSyncStatus(Node.SYNCSTATUS_SYNCED);
             }        
             ch.delay(5);
@@ -156,4 +158,5 @@ public class Clock {
     public void setPropDelay(long propDelayRoot) {
         this.propDelay = propDelayRoot;
     }
+    
 }

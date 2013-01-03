@@ -11,6 +11,8 @@ import lejos.nxt.comm.Bluetooth;
  *
  */
 public class Node {
+    
+    final static boolean DEBUG = true;
 
     final static int NUMCHANNELS = 4;
     final static int SLAVECHANNEL = 0;
@@ -20,21 +22,22 @@ public class Node {
     
     final static long SYNCREQ = -99;
     final static long SYNCPARAMS = -100;
+    final static long SUBNET_SYNCED_CODE = -101;
     final static boolean SYNCSTATUS_SYNCED = true;
     final static boolean SYNCSTATUS_NOTSYNCED = false;
     final static int SYNCWINDOW = 20;
             
-    final static int COMMCOUNT = 50; 
+    final static int COMMCOUNT = 15; 
     public static boolean isRootNode = false;
-    final static boolean SYNCHRONIZE = true;
-    static Clock clock;
+    final static boolean SYNCHRONIZE = true;    
+    static Clock clock = new Clock();
     
     public static CommChannel setAsMaster(String slave, int priority){
         CommChannel m = new CommMaster(slave);
         m.connect(slave);
         m.openIOStreams();
         String fileName;
-        fileName = new String(slave + ".txt");
+        fileName = slave + ".txt";
         m.startDataLog(fileName);
         m.setPriority(priority); 
         return m;
@@ -44,7 +47,7 @@ public class Node {
         s.connect();
         s.openIOStreams();
         String fileName;
-        fileName = new String(slave + ".txt");
+        fileName = slave + ".txt";
         s.startDataLog(fileName);
         s.setPriority(priority); 
         return s;
@@ -68,43 +71,52 @@ public class Node {
     
     public static boolean isCommunicating(CommChannel[] channels){
         
-        boolean communicating = false;
-        
+        boolean communicating = false;        
         for (int i=0;i<NUMCHANNELS;i++){
             if (channels[i] != null){
                 if (channels[i].isRunning()){
                     communicating = true;
                 }
             }
-        }
-        /*
-        if (ch2 != null){
-            if (ch2.isRunning()){
-                communicating = true;
-            }            
-        }
-        if (ch3 != null){
-            if (ch3.isRunning()){
-                communicating = true;
-            }           
-        }
-        if (ch4 != null){
-            if (ch4.isRunning()){
-                communicating = true;
-            }           
-        }*/
-        
+        }        
         return communicating;
     }
     
+    public static void debugMessage(String s, int col, int row, int delay){        
+        LCD.drawString(s,col,row);
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException ex) {            
+        }
+    }    
+    public static void debugMessage(String s, int delay){
+        LCD.clear();
+        debugMessage(s,0,0,delay);
+    }    
+    public static void debugMessage(String s, int col, int row){
+        debugMessage(s,col,row,500);
+    }
+    public static void debugMessage(String s){
+        LCD.clear();
+        debugMessage(s,0,0,500);
+    }
+    
+    public static void delay(int delayTime){
+        try {
+            Thread.sleep(delayTime);
+        } catch (InterruptedException ex) {
+            //error    
+        }
+    }
     
     public static void main(String[] args) throws InterruptedException {         
-                
-        CommChannel [] commChannels = null;
+        
+        CommChannel [] commChannels = {null, null,null,null};//new CommChannel[NUMCHANNELS];        
         boolean commStatus; 
+        boolean sensorNetSynced = false;
         
         //construct the communication topology
-        String myName = Bluetooth.getName();        
+        String myName = Bluetooth.getName();    
         if (myName.equalsIgnoreCase("Node0")){
             //do nothing
         }else if (myName.equalsIgnoreCase("Node1")){
@@ -124,74 +136,67 @@ public class Node {
          if (SYNCHRONIZE){
              boolean temp = false;
             //wait for synchronization request from its master
-            if (clock.getSyncStatus()== SYNCSTATUS_NOTSYNCED){
+            if (clock.getSyncStatus() == SYNCSTATUS_NOTSYNCED){
                 clock.waitForSync(commChannels[SLAVECHANNEL]);
             }
             //once the node is synchronized with root's clock
             //perform synchronization on its slave nodes.
-            for (int i=0;i<NUMCHANNELS; i++){                
+            for (int i=MASTERCHANNEL1;i<NUMCHANNELS; i++){                
                 if (commChannels[i]!=null){ 
                     temp = clock.initiateSync(commChannels[i],i);
                 }
             }
-        }
- 
-        for (int i=0;i<NUMCHANNELS;i++){
-            if (commChannels[i]!=null){ 
-                commChannels[i].start();           
-                LCD.drawString("Ch" + i + " started",0,3);
-                Thread.sleep(500);         
+            
+            //wait for this node's subnet to sync
+            long  tempSyncCode;
+            while (!sensorNetSynced){
+                sensorNetSynced = true;
+                debugMessage("Syncing...");
+                for (int i=MASTERCHANNEL1;i<NUMCHANNELS; i++){
+                    if (commChannels[i]!=null){
+                        tempSyncCode = commChannels[MASTERCHANNEL1].readLongData(Clock.LOGSYNCDATA);  
+                        if (tempSyncCode != SUBNET_SYNCED_CODE){
+                            sensorNetSynced = false;
+                        }
+                    }
+                    delay(100);
+                }                
+            }
+            debugMessage("Synced",0,1);
+            debugMessage(Long.toString(clock.getDriftRoot()),4000);
+            
+            //send data to its master to complete synchronization
+            if (!isRootNode){
+                commChannels[SLAVECHANNEL].writeLongData(SUBNET_SYNCED_CODE, Clock.LOGSYNCDATA);
             }
         }
-
         
+        for (int i=0;i<NUMCHANNELS;i++){
+            if (commChannels[i] != null){               
+                commChannels[i].start();
+                debugMessage("Ch" + i + " started",0,3,1000); 
+            }
+        }
         
-        /*
-        if (chMaster1!=null){ 
-            chMaster1.start();
-            LCD.drawString("Ch2 started",0,4);
-            Thread.sleep(500);
-        }
-
-        if (chMaster2!=null){ 
-            chMaster2.start();
-            LCD.drawString("Ch3 started",0,5);
-            Thread.sleep(500);
-        }
-
-        if (chMaster3!=null){ 
-            chMaster3.start();
-            LCD.drawString("Ch4 started",0,6);
-            Thread.sleep(500);
-        }
-        */
-
-        Thread.sleep(1000);
-        LCD.clear();
-        LCD.drawString("Communicating",0,0);
-        
+        debugMessage("Communicating",1000);         
         commStatus = isCommunicating(commChannels);
         
         while(commStatus){
             commStatus = isCommunicating(commChannels);
-            Thread.sleep(100);
+            delay(100);            
         }
         
-        //save data and close connections
-        
+        debugMessage("Saving");
+        //save data and close connections        
         for (int i=0;i<NUMCHANNELS;i++){
-            if (commChannels[i]!=null){
+            if (commChannels[i] != null){
                 try{
                     saveAndClose(commChannels[i]);
                 }catch(IOException ioe){
+                    debugMessage("Save Error",0,1,1000);
                 }
             }
-        }
-        
-        
-        
-        LCD.clear();
-        LCD.drawString("Exiting ",0,0);
-        Thread.sleep(1000);     
+        }       
+        debugMessage("Exiting");     
     }
 }

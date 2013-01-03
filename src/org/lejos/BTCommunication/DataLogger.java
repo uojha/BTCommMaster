@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import lejos.nxt.LCD;
 
 /**
  * 
@@ -29,6 +28,7 @@ public class DataLogger {
         private File f;
         ArrayList <Long> writeTime = new ArrayList<Long>();
         ArrayList <Long> readTime = new ArrayList<Long>();
+        ArrayList <Long>  dataLog = new ArrayList<Long>();
         
         /* constructor
          * @author U. Ojha
@@ -57,7 +57,7 @@ public class DataLogger {
      }
     
 	/**
-	 * This method add data into a file
+	 * This method add dataLog into a file
 	 * 
 	 * @param text to add
 	 * @author JAB
@@ -83,17 +83,22 @@ public class DataLogger {
             }
             appendToFile("DATA FOR ");
             appendToFile(nodeName.toUpperCase()+"\n\n");
-            LCD.clear();
-            LCD.drawString(fileName + " created",0,0);
+            if (Node.DEBUG){
+                Node.debugMessage(fileName + " created");
+            }
         }catch(IOException e){
-            LCD.drawString(e.getMessage(),0,0);
-            LCD.clear();
-            LCD.drawString("Cant create " + fileName,0,0);            
+            if (Node.DEBUG){
+                Node.debugMessage("Cant create " + fileName);
+            }        
         }
     }
     
     public void logWriteTime(){
         writeTime.add(System.currentTimeMillis());
+    }
+    
+    public void logLongData(long n){
+        dataLog.add(n);
     }
     
     public void logReadTime(){
@@ -106,7 +111,12 @@ public class DataLogger {
             appendToFile("\t");
             appendToFile(Long.toString(readTime.get(i)));
             appendToFile("\n");
-        }                
+        }  
+        for(int i=0;i<dataLog.size();i++) {
+            appendToFile("Drift: ");
+            appendToFile(Long.toString(dataLog.get(i)));            
+            appendToFile("\n");
+        }  
     }
    
     

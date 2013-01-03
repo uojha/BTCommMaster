@@ -9,7 +9,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import javax.bluetooth.RemoteDevice;
-import lejos.nxt.LCD;
 import lejos.nxt.comm.BTConnection;
 import lejos.nxt.comm.Bluetooth;
 
@@ -56,13 +55,16 @@ public class CommChannel extends Thread {
     }
     
     protected int discoverDevices(){
-        LCD.clear();
-        LCD.drawString("Searching...",0,0);
+        if (Node.DEBUG) {
+            Node.debugMessage("Searching...");
+        }
         int cod = 0000;
         ArrayList <RemoteDevice> devList = Bluetooth.inquire(5,10,cod);
         if (devList == null){   //if none was found inform the user
-            LCD.drawString("inquire returns null",0,1);
-            LCD.drawString("Exiting!",0,2);            
+            if (Node.DEBUG) {
+                Node.debugMessage("Inquiry returns Null",0,0,0);
+                Node.debugMessage("Exiting",0,1);
+            }          
             return 0;
         //if some were found, add them in the known device list
         }else if (devList.size()>0){       
@@ -71,7 +73,9 @@ public class CommChannel extends Thread {
                 RemoteDevice btrd = devList.get(j);
                 names[j] = btrd.getFriendlyName(false);              
                 Bluetooth.addDevice(btrd);
-                LCD.drawString("added "+ names[j] + "\n",0,j+1);                   
+                if (Node.DEBUG) {
+                    Node.debugMessage("added "+ names[j] + "\n",0,j+1);
+                }                
             } 
             delay(500);
         }
@@ -102,6 +106,10 @@ public class CommChannel extends Thread {
         dataLogger.logReadTime();
     }
     
+    public void logData(long n){
+        dataLogger.logLongData(n);
+    }
+    
     public int writeLongData(long n, boolean log){        
         try {
             if (log){
@@ -111,9 +119,9 @@ public class CommChannel extends Thread {
             dos.flush();
             return 1;
         } catch (IOException ioe) {
-            LCD.drawString("Write Exception", 0, 0);
-            delay(50);
-            LCD.refresh();
+            if (Node.DEBUG) {
+                Node.debugMessage("Write Exception");
+            }
             return 0;
         }
     }
@@ -127,23 +135,26 @@ public class CommChannel extends Thread {
             dos.flush();
             return 1;
         } catch (IOException ioe) {
-            LCD.drawString("Write Exception", 0, 0);
-            delay(50);
-            LCD.refresh();
+            if (Node.DEBUG) {
+                Node.debugMessage("Write Exception");
+            }
             return 0;
         }
     }
     
     public void saveData(){
-        LCD.clear();
-        LCD.drawString("Saving", 0, 0);
+        if (Node.DEBUG) {
+            Node.debugMessage("Saving",100);
+        }
         try {
             dataLogger.saveData();
-            LCD.clear();
-            LCD.drawString("Success", 0, 1);
+            if (Node.DEBUG) {
+                Node.debugMessage("Success");
+            }
         } catch (IOException ex) {
-            LCD.clear();
-            LCD.drawString("Error!!", 0, 2);
+            if (Node.DEBUG) {
+                Node.debugMessage("Error in Saving");
+            }
             
         }
     }
@@ -156,9 +167,9 @@ public class CommChannel extends Thread {
                 logReadTime();
             }
         } catch (IOException ioe) {
-            LCD.drawString("Read Exception ", 0, 0);
-            delay(50);            
-            LCD.refresh();
+            if (Node.DEBUG) {
+                Node.debugMessage("Read Exception");
+            }
             temp = -1;
         }    
         return temp;
@@ -172,9 +183,9 @@ public class CommChannel extends Thread {
                 logReadTime();
             }
         } catch (IOException ioe) {
-            LCD.drawString("Read Exception ", 0, 0);
-            delay(50);            
-            LCD.refresh();
+            if (Node.DEBUG) {
+                Node.debugMessage("Read Exception");
+            }
             temp = false;
         }    
         return temp;
@@ -207,9 +218,9 @@ public class CommChannel extends Thread {
      
     
     public void run() {
-        LCD.clear();
-        LCD.drawString("In Channel Run", 0, 2);
-        delay(1000);
+        if (Node.DEBUG) {
+            Node.debugMessage("In Channel Run");
+        }
     }
         
         
