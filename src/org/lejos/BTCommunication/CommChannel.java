@@ -31,29 +31,23 @@ public class CommChannel extends Thread {
     
     public CommChannel(){        
         
-    }
-    
+    }    
     public CommChannel(String n){
         super(n);        
         nodeName = n;        
-    }
-    
+    }    
     public boolean isRunning(){
         return threadRunning;
-    }
-    
+    }    
     public String getNodeName(){
         return nodeName;
-    }
-    
+    }    
     public void startDataLog(String fileName){
         dataLogger.initialize(fileName, nodeName);        
-    }
-    
+    }    
     public void stopDataLog(){
         dataLogger.close();      
-    }
-    
+    }    
     protected int discoverDevices(){
         if (Node.DEBUG) {
             Node.debugMessage("Searching...");
@@ -80,8 +74,7 @@ public class CommChannel extends Thread {
             delay(500);
         }
         return 1;    
-    }
-    
+    }    
     public int connect(){
         //check if BT is on. If not switch it on
         if (!Bluetooth.getPower()){          
@@ -92,24 +85,19 @@ public class CommChannel extends Thread {
             Bluetooth.setVisibility((byte)1); //Set visible
         }
         return 1;
-    }
-    
+    }    
     public int connect(String name){        
         return (connect());
     }
-
     private void logWriteTime(){
         dataLogger.logWriteTime();
-    }
-    
+    }    
     private void logReadTime(){
         dataLogger.logReadTime();
-    }
-    
+    }    
     public void logData(long n){
         dataLogger.logLongData(n);
-    }
-    
+    }    
     public int writeLongData(long n, boolean log){        
         try {
             if (log){
@@ -124,8 +112,7 @@ public class CommChannel extends Thread {
             }
             return 0;
         }
-    }
-    
+    }    
     public int writeBoolData(boolean d, boolean log){        
         try {
             if (log){
@@ -140,8 +127,7 @@ public class CommChannel extends Thread {
             }
             return 0;
         }
-    }
-    
+    }    
     public void saveData(){
         if (Node.DEBUG) {
             Node.debugMessage("Saving",100);
@@ -157,8 +143,7 @@ public class CommChannel extends Thread {
             }
             
         }
-    }
-    
+    }    
     public long readLongData(boolean log){
         long temp;
         try {                    
@@ -173,8 +158,7 @@ public class CommChannel extends Thread {
             temp = -1;
         }    
         return temp;
-    }
-    
+    }    
     public boolean readBoolData(boolean log){
         boolean temp;
         try {                    
@@ -189,34 +173,27 @@ public class CommChannel extends Thread {
             temp = false;
         }    
         return temp;
-    }
-    
-    
+    }    
     public void delay(int delayTime){
         try {
             Thread.sleep(delayTime);
         } catch (InterruptedException ex) {
             //error    
         }
-    }
-    
+    }    
     public void disconnect(){
         nodeConnection.close();
         delay(100);
-    }
-    
+    }    
     public void closeIOStreams() throws IOException{
         dis.close();
         dos.close();
         delay(100);
-    }
-    
+    }    
     public void openIOStreams(){        
         dis = nodeConnection.openDataInputStream();
         dos = nodeConnection.openDataOutputStream();
-    }
-     
-    
+    }   
     public void run() {
         if (Node.DEBUG) {
             Node.debugMessage("In Channel Run");

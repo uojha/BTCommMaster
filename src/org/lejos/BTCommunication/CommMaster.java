@@ -71,13 +71,23 @@ public class CommMaster extends CommChannel{
     @Override
     public void run() {
         threadRunning = true;
+        long deltaT = 500;   //500 ms
+        long waitTime = 5000; //
+        
         if (Node.DEBUG) {
             Node.debugMessage("Starting Master",1000);                    
         }
-        for(int i=0;i<Node.COMMCOUNT;i++) {
-            writeLongData(System.currentTimeMillis(),true);           
-            readLongData(true);
-            delay(10);            
+        Node.debugMessage(Long.toString(System.currentTimeMillis()));
+        //tell the slave to start sending message at 
+        writeLongData(deltaT, false);        
+        writeLongData(Node.STARTTIME, false);
+        
+        for(int i=0;i<Node.COMMCOUNT;i++){
+            //writeLongData(System.currentTimeMillis(),true);           
+            logData(readLongData(true));
+            //Node.debugMessage(Integer.toString(i),0,1);
+            //logData(System.currentTimeMillis());
+            delay(5);            
         }
         Node.debugMessage("Master Done",1000);
         threadRunning = false;

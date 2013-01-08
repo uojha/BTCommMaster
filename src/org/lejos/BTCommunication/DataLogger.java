@@ -33,9 +33,8 @@ public class DataLogger {
         /* constructor
          * @author U. Ojha
          */
-        public DataLogger(){
-        }
-        
+   public DataLogger(){
+        }      
 	
 	/**
 	 * This method convert any String into an Array of bytes
@@ -44,7 +43,7 @@ public class DataLogger {
 	 * @return An Array of bytes.
 	 * @author JAB
 	 */ 
-      private byte[] getBytes(String inputText){
+   private byte[] getBytes(String inputText){
     	//Debug Point
         byte[] nameBytes = new byte[inputText.length()+1];
         
@@ -70,8 +69,7 @@ public class DataLogger {
         for(int i=0;i<byteText.length-1;i++){
             fos.write((int) byteText[i]);
         }    	
-    }
-    
+    }    
     public void initialize(String fileName, String nodeName){
         try{
             f = new File(fileName);
@@ -91,35 +89,31 @@ public class DataLogger {
                 Node.debugMessage("Cant create " + fileName);
             }        
         }
-    }
-    
+    }    
     public void logWriteTime(){
         writeTime.add(System.currentTimeMillis());
-    }
-    
+    }    
     public void logLongData(long n){
         dataLog.add(n);
-    }
-    
+    }    
     public void logReadTime(){
         readTime.add(System.currentTimeMillis());
-    }    
-      
-    public void saveData() throws IOException{        
-        for(int i=0;i<writeTime.size();i++) {
-            appendToFile(Long.toString(writeTime.get(i)));
-            appendToFile("\t");
+    }       
+    public void saveData() throws IOException{  
+        appendToFile("Read time");
+        for(int i=0;i<readTime.size();i++) {
+            //appendToFile(Long.toString(writeTime.get(i)));
+            //appendToFile("\t");
             appendToFile(Long.toString(readTime.get(i)));
             appendToFile("\n");
         }  
+        appendToFile("Logged Data");
         for(int i=0;i<dataLog.size();i++) {
-            appendToFile("Drift: ");
+            //appendToFile("Drift: ");
             appendToFile(Long.toString(dataLog.get(i)));            
             appendToFile("\n");
         }  
     }
-   
-    
     public void close(){
         try {
             fos.close();

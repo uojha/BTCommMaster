@@ -13,7 +13,6 @@ import lejos.nxt.comm.Bluetooth;
 public class Node {
     
     final static boolean DEBUG = true;
-
     final static int NUMCHANNELS = 4;
     final static int SLAVECHANNEL = 0;
     final static int MASTERCHANNEL1 = 1;
@@ -26,8 +25,9 @@ public class Node {
     final static boolean SYNCSTATUS_SYNCED = true;
     final static boolean SYNCSTATUS_NOTSYNCED = false;
     final static int SYNCWINDOW = 20;
+    public static long STARTTIME;
             
-    final static int COMMCOUNT = 15; 
+    final static int COMMCOUNT = 200; 
     public static boolean isRootNode = false;
     final static boolean SYNCHRONIZE = true;    
     static Clock clock = new Clock();
@@ -51,24 +51,20 @@ public class Node {
         s.startDataLog(fileName);
         s.setPriority(priority); 
         return s;
-    }
-    
+    }    
     public static void saveAndClose(CommChannel c) throws IOException{
         c.saveData();
         c.stopDataLog();
         c.closeIOStreams();
         c.disconnect();
-    }
-    
+    }    
     public static void setRoot(){
         isRootNode = true;   
         clock.setSyncStatus(true);
-    }
-    
+    }    
     public static boolean isRoot(){
         return(isRootNode);
     }
-    
     public static boolean isCommunicating(CommChannel[] channels){
         
         boolean communicating = false;        
@@ -80,8 +76,7 @@ public class Node {
             }
         }        
         return communicating;
-    }
-    
+    }    
     public static void debugMessage(String s, int col, int row, int delay){        
         LCD.drawString(s,col,row);
         try {
@@ -99,16 +94,14 @@ public class Node {
     public static void debugMessage(String s){
         LCD.clear();
         debugMessage(s,0,0,500);
-    }
-    
+    }    
     public static void delay(int delayTime){
         try {
             Thread.sleep(delayTime);
         } catch (InterruptedException ex) {
             //error    
         }
-    }
-    
+    }    
     public static void main(String[] args) throws InterruptedException {         
         
         CommChannel [] commChannels = {null, null,null,null};//new CommChannel[NUMCHANNELS];        
@@ -121,12 +114,12 @@ public class Node {
             //do nothing
         }else if (myName.equalsIgnoreCase("Node1")){
             setRoot();
-            commChannels[MASTERCHANNEL1] = setAsMaster("Node2", 2);            
+            commChannels[MASTERCHANNEL1] = setAsMaster("Node2", 2);  
+            commChannels[MASTERCHANNEL2] = setAsMaster("Node3", 5);
         }else if (myName.equalsIgnoreCase("Node2")){
-            commChannels[SLAVECHANNEL] = setAsSlave("Node1", 7);
-            commChannels[MASTERCHANNEL1] = setAsMaster("Node3", 2);            
+            commChannels[SLAVECHANNEL] = setAsSlave("Node1", 7);                        
         }else if (myName.equalsIgnoreCase("Node3")){
-            commChannels[SLAVECHANNEL] = setAsSlave("Node2", 7);            
+            commChannels[SLAVECHANNEL] = setAsSlave("Node1", 7);            
         }else{
             //do Nothing
         }
@@ -154,7 +147,7 @@ public class Node {
                 debugMessage("Syncing...");
                 for (int i=MASTERCHANNEL1;i<NUMCHANNELS; i++){
                     if (commChannels[i]!=null){
-                        tempSyncCode = commChannels[MASTERCHANNEL1].readLongData(Clock.LOGSYNCDATA);  
+                        tempSyncCode = commChannels[i].readLongData(Clock.LOGSYNCDATA);  
                         if (tempSyncCode != SUBNET_SYNCED_CODE){
                             sensorNetSynced = false;
                         }
@@ -171,18 +164,20 @@ public class Node {
             }
         }
         
+        STARTTIME = System.currentTimeMillis()+10000;
+         
         for (int i=0;i<NUMCHANNELS;i++){
             if (commChannels[i] != null){               
                 commChannels[i].start();
                 debugMessage("Ch" + i + " started",0,3,1000); 
             }
-        }
+        }        
         
         debugMessage("Communicating",1000);         
         commStatus = isCommunicating(commChannels);
         
         while(commStatus){
-            commStatus = isCommunicating(commChannels);
+            commStatus = isCommunicating(commChannels);            
             delay(100);            
         }
         

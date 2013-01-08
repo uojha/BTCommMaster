@@ -26,7 +26,7 @@ public class Clock {
     }
     
     
-    /*
+    /**
      * Method that initiates Synchronization to slave channel ch
      * Sends sync request to the slave and waits for reply
      * If slave is synced already, returns true
@@ -53,10 +53,8 @@ public class Clock {
         ch.writeLongData(drift[channelID], LOGSYNCDATA);        
         return s;
         
-    }
-    
-    
-    /*
+    }    
+    /**
      * Method that waits for a master's synchronization request.
      * Upon receiving the request, sends its status. If it is already synced
      * sends true else sends false. No further action is required if the slave
@@ -87,9 +85,8 @@ public class Clock {
             ch.delay(5);
         }
     }
-
  //SYNCHRONIZATION METHODS
-    /*
+    /**
      * Proposed by Ganeriwal et al.
      * Time-Sync protocol for Sensor Networks
      * Has two phases - "level discovery phase" and
@@ -122,39 +119,30 @@ public class Clock {
         delay[channelID] = (long)(tempdelay/Node.SYNCWINDOW);
         drift[channelID] = driftRoot + (long)(tempdrift/Node.SYNCWINDOW);        
     }
-      
-    
     
     //GETTERS AND SETTERS
     
      public boolean getSyncStatus() {
         return syncStatus;
     }
-
     public void setSyncStatus(boolean syncStatus) {
         this.syncStatus = syncStatus;
-    }
-    
+    }    
     public long getPropDelay() {
         return propDelay;
     }
-
     public long getDriftRoot() {
         return driftRoot;
-    }
-    
+    }    
     public boolean getSyncing(){
         return isSyncing;
-    }
-    
+    }    
     public void setDriftRoot(long driftRoot) {
         this.driftRoot = driftRoot;
-    }
-    
+    }    
     public void setSyncing(boolean s){
         isSyncing = s;
-    }
-    
+    }    
     public void setPropDelay(long propDelayRoot) {
         this.propDelay = propDelayRoot;
     }
