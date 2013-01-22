@@ -29,6 +29,8 @@ public class DataLogger {
         ArrayList <Long> writeTime = new ArrayList<Long>();
         ArrayList <Long> readTime = new ArrayList<Long>();
         ArrayList <Long>  dataLog = new ArrayList<Long>();
+        ArrayList <Double>  stateLog = new ArrayList<Double>();
+        ArrayList <Double>  neighborLog = new ArrayList<Double>();
         
         /* constructor
          * @author U. Ojha
@@ -79,8 +81,8 @@ public class DataLogger {
             } catch (InterruptedException ex) {
                 
             }
-            appendToFile("DATA FOR ");
-            appendToFile(nodeName.toUpperCase()+"\n\n");
+            //appendToFile("DATA FOR ");
+            //appendToFile(nodeName.toUpperCase()+"\n\n");
             if (Node.DEBUG){
                 Node.debugMessage(fileName + " created");
             }
@@ -92,15 +94,49 @@ public class DataLogger {
     }    
     public void logWriteTime(){
         writeTime.add(System.currentTimeMillis());
-    }    
+    }
+    
+    public void logWriteTime(long n){
+        writeTime.add(n);
+    }
+    
     public void logLongData(long n){
         dataLog.add(n);
     }    
+    
+    public void logState(Double n) {        
+        stateLog.add(n);
+    }
+    
+    public void logNeighbor(Double n) {        
+        neighborLog.add(n);
+    }
+    
+    
     public void logReadTime(){
         readTime.add(System.currentTimeMillis());
-    }       
+    } 
+    
+    public void logReadTime(long n){
+        readTime.add(n);
+    } 
+    
     public void saveData() throws IOException{  
-        appendToFile("Read time");
+        //appendToFile("allData time");
+        //appendToFile("\n");
+        for(int i=0;i<stateLog.size();i++) {
+            //appendToFile(Long.toString(readTime.get(i)));
+            //appendToFile("\t");
+            if (Node.isRootNode){
+                appendToFile(Double.toString(neighborLog.get(i)));
+                appendToFile("\t");
+            }
+            appendToFile(Long.toString(writeTime.get(i)));
+            appendToFile("\t");
+            appendToFile(Double.toString(stateLog.get(i)));
+            appendToFile("\n");
+        } 
+        /*
         for(int i=0;i<readTime.size();i++) {
             //appendToFile(Long.toString(writeTime.get(i)));
             //appendToFile("\t");
@@ -108,11 +144,14 @@ public class DataLogger {
             appendToFile("\n");
         }  
         appendToFile("Logged Data");
+        appendToFile("\n");
         for(int i=0;i<dataLog.size();i++) {
             //appendToFile("Drift: ");
             appendToFile(Long.toString(dataLog.get(i)));            
             appendToFile("\n");
         }  
+        * */
+        
     }
     public void close(){
         try {
@@ -121,5 +160,7 @@ public class DataLogger {
             //Logger.getLogger(DataLogger.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
+
+    
     
 }

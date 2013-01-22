@@ -21,20 +21,23 @@ public class CommChannel extends Thread {
     private DataInputStream dis = null; 
     private DataOutputStream dos = null;    
     private String nodeName;
+    protected int id;
     private DataLogger dataLogger = new DataLogger();    
-    protected BTConnection nodeConnection = null; 
+    protected BTConnection nodeConnection; 
     protected boolean threadRunning = false;    
     protected boolean connected = false;
     protected RemoteDevice node;
+    protected int neighborID = 0;
     
     
     
     public CommChannel(){        
         
     }    
-    public CommChannel(String n){
+    public CommChannel(String n, int ch_id){
         super(n);        
-        nodeName = n;        
+        nodeName = n;   
+        id = ch_id;
     }    
     public boolean isRunning(){
         return threadRunning;
@@ -47,7 +50,12 @@ public class CommChannel extends Thread {
     }    
     public void stopDataLog(){
         dataLogger.close();      
-    }    
+    }   
+    
+    public void setNeighborID(int n_id){
+        neighborID = n_id;      
+    }
+    
     protected int discoverDevices(){
         if (Node.DEBUG) {
             Node.debugMessage("Searching...");
@@ -90,14 +98,23 @@ public class CommChannel extends Thread {
         return (connect());
     }
     private void logWriteTime(){
-        dataLogger.logWriteTime();
+        dataLogger.logWriteTime(System.currentTimeMillis() - Node.clock.getDriftRoot());
     }    
     private void logReadTime(){
-        dataLogger.logReadTime();
+        dataLogger.logReadTime(System.currentTimeMillis() - Node.clock.getDriftRoot());
     }    
     public void logData(long n){
         dataLogger.logLongData(n);
-    }    
+    }  
+    
+    public void logState(double n){
+        dataLogger.logState(n);
+    }
+    
+    public void logNeighbor(double n){
+        dataLogger.logNeighbor(n);
+    }
+    
     public int writeLongData(long n, boolean log){        
         try {
             if (log){
@@ -113,6 +130,38 @@ public class CommChannel extends Thread {
             return 0;
         }
     }    
+    public int writeFloatData(Float n, boolean log){        
+        try {
+            if (log){
+                logWriteTime();
+            }
+            dos.writeFloat(n);
+            dos.flush();
+            return 1;
+        } catch (IOException ioe) {
+            if (Node.DEBUG) {
+                Node.debugMessage("Write Exception");
+            }
+            return 0;
+        }
+    }
+    
+    public int writeDoubleData(double n, boolean log){        
+        try {
+            if (log){
+                logWriteTime();
+            }
+            dos.writeDouble(n);
+            dos.flush();
+            return 1;
+        } catch (IOException ioe) {
+            if (Node.DEBUG) {
+                Node.debugMessage("Write Exception");
+            }
+            return 0;
+        }
+    } 
+    
     public int writeBoolData(boolean d, boolean log){        
         try {
             if (log){
@@ -159,6 +208,36 @@ public class CommChannel extends Thread {
         }    
         return temp;
     }    
+    public float readFloatData(boolean log){
+        float temp;
+        try {                    
+            temp = dis.readFloat();
+            if (log){
+                logReadTime();
+            }
+        } catch (IOException ioe) {
+            if (Node.DEBUG) {
+                Node.debugMessage("Read Exception");
+            }
+            temp = -1.0f;
+        }    
+        return temp;
+    }
+    public double readDoubleData(boolean log){
+        double temp;
+        try {                    
+            temp = dis.readDouble();
+            if (log){
+                logReadTime();
+            }
+        } catch (IOException ioe) {
+            if (Node.DEBUG) {
+                Node.debugMessage("Read Exception");
+            }
+            temp = -1.0f;
+        }    
+        return temp;
+    }
     public boolean readBoolData(boolean log){
         boolean temp;
         try {                    
