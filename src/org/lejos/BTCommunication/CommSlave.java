@@ -55,7 +55,7 @@ public class CommSlave extends CommChannel{
 //                data_in = readFloatData(false);
 //                delay(5);
 //            }
-            //logNeighbor(data_in);
+//            logNeighbor(data_in);
             Node.distAlgo.setNeighborVal(neighborID,data_in);
             
             //update dataStep

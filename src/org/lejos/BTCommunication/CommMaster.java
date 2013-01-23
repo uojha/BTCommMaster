@@ -70,7 +70,7 @@ public class CommMaster extends CommChannel{
         threadRunning = true;
         long deltaT = Node.DELTA_T;   //500 ms
         long startTime = Node.STARTTIME;
-        double data_in = 0.0f;
+        double data_in;
         if (Node.DEBUG) {
             Node.debugMessage("Starting Master",1000);                    
         }             

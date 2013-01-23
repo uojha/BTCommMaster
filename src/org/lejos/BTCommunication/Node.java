@@ -10,11 +10,11 @@ import lejos.nxt.comm.Bluetooth;
  * such as search, add to device list, connect, communicate and disconnect
  *
  */
-public class Node {
-    
+public class Node {    
     
     final static int NUMCHANNELS = 4;
-    final static int NUMNODES = 5;
+    final static int MAXMASTERCHANNELS = 3;
+    final static int MAXSLAVECHANNELS = 1;
     final static int SLAVECHANNEL = 0;
     final static int MASTERCHANNEL1 = 1;
     final static int MASTERCHANNEL2 = 2;
@@ -23,194 +23,274 @@ public class Node {
     final static long SYNCPARAMS = -100;
     final static long SUBNET_SYNCED_CODE = -101;
     final static boolean SYNCSTATUS_SYNCED = true;
-    final static boolean SYNCSTATUS_NOTSYNCED = false;
+    final static boolean SYNCSTATUS_NOTSYNCED = false;    
     
     final static int SYNCWINDOW = 20;
     final static boolean DEBUG = true;    
     final static boolean SYNCHRONIZE = true;         
-    final static int COMMCOUNT = 150; 
-    final static double[] INITNODEVALS = {9,9,9,9,9};
-    final static int DELTA_T = 250; 
-    
-    
+    final static int COMMCOUNT = 150;     
+    final static int DELTA_T = 250;     
+        
     public static boolean[] activeNeighbor = {false, false, false, false};
     public static boolean isRootNode = false;
-    public static boolean initStatus = false;
+    public static int nodeID = 0;
     public static long STARTTIME;  
+    public static int numNodes;    
     
-    static Clock clock = new Clock();
-    static DistAlgorithm distAlgo = new DistAlgorithm();
-    static int nodeID = 0;
+    public static CommChannel [] commChannels = {null, null,null,null};
+    public static Clock clock = new Clock();
+    public static DistAlgorithm distAlgo = new DistAlgorithm();
+    
 
-    
-    public static void main(String[] args) throws InterruptedException {         
+    public static void main(String[] args) throws InterruptedException {               
+        //Use topology matrix to set the network topology. 
+        //Use 1 if the node is the master and -1 if it is the slave
+        double [][] adjacencyMatrix =   {   { 0, 1, 1},
+                                            {-1, 0, 0},
+                                            {-1, 0, 0}
+                                        };        
         
-        CommChannel [] commChannels = {null, null,null,null};
-        boolean commStatus; 
-        boolean sensorNetSynced = false;
+        double [] initNodeValues = {9,9,9};         //specify the initial value of the nodes    
+        int rootNode = 0;                           //specify the root node's id      
+        double epsilon = 0.25;                      //specify the value of epsilon     
+        double epsilon2 = 0.001;                    //set epsilon value for deltaP in ICC
+        //using same values as paper
+        //double [] alpha = {561, 310,78,561,78};
+        double [] beta = {7.92, 7.85,7.8,7.92,7.8};                     //set beta value for ICC
+        double [] gamma = {0.001562,0.00194,0.00482,0.001562,0.00482};  //set gamma value for ICC
         
-        //construct the communication topology
-        String myName = Bluetooth.getName();    
-        if (myName.equalsIgnoreCase("Node0")){
-            setRoot();
-            nodeID = 0;
-            distAlgo.setNodeVal(INITNODEVALS[0]);
-            commChannels[MASTERCHANNEL1] = setAsMaster("Node1", MASTERCHANNEL1, 1, 2); 
-            commChannels[MASTERCHANNEL2] = setAsMaster("Node2", MASTERCHANNEL2, 2, 2);             
-        }else if (myName.equalsIgnoreCase("Node1")){  
-            nodeID = 1;
-            distAlgo.setNodeVal(INITNODEVALS[1]);
-            commChannels[SLAVECHANNEL] = setAsSlave("Node0", 0, 2);
-            //commChannels[MASTERCHANNEL1] = setAsMaster("Node2", 2, MASTERCHANNEL1);
-        }else if (myName.equalsIgnoreCase("Node2")){
-            nodeID = 2;
-            distAlgo.setNodeVal(INITNODEVALS[2]);
-            commChannels[SLAVECHANNEL] = setAsSlave("Node0", 0, 2);   
-            commChannels[MASTERCHANNEL1] = setAsMaster("Node3", MASTERCHANNEL1,3,2); 
-            commChannels[MASTERCHANNEL2] = setAsMaster("Node4", MASTERCHANNEL2,4,2);
-        }else if (myName.equalsIgnoreCase("Node3")){
-            nodeID = 3;
-            distAlgo.setNodeVal(INITNODEVALS[3]);
-            commChannels[SLAVECHANNEL] = setAsSlave("Node2", 2,2);   
-            //commChannels[MASTERCHANNEL1] = setAsMaster("Node1", 2, MASTERCHANNEL1); 
-        }else if (myName.equalsIgnoreCase("Node4")){
-            nodeID = 4;
-            distAlgo.setNodeVal(INITNODEVALS[4]);
-            commChannels[SLAVECHANNEL] = setAsSlave("Node2", 2,2);   
-            //commChannels[MASTERCHANNEL1] = setAsMaster("Node1", 2, MASTERCHANNEL1); 
-        }else{
-            //do Nothing
-        }
-        
-        if (isRootNode){
-            STARTTIME = System.currentTimeMillis() + 100000;
-        } 
-        
-         //before starting the threads, we will perform synchronization
-         if (SYNCHRONIZE){
-             boolean temp = false;
-            //wait for synchronization request from its master
-            if (clock.getSyncStatus() == SYNCSTATUS_NOTSYNCED){
-                clock.waitForSync(commChannels[SLAVECHANNEL]);
-            }
-            //once the node is synchronized with root's clock
-            //perform synchronization on its slave nodes.
-            for (int i=MASTERCHANNEL1;i<NUMCHANNELS; i++){                
-                if (commChannels[i]!=null){ 
-                    temp = clock.initiateSync(commChannels[i],i);
-                }
-            }
+        //check if the network topology contains rings or multiple slave connections
+        if (checkTopology(adjacencyMatrix, rootNode)){        
             
-            //wait for this node's subnet to sync
-            long  tempSyncCode;
-            while (!sensorNetSynced){
-                sensorNetSynced = true;
-                debugMessage("Syncing...");
-                for (int i=MASTERCHANNEL1;i<NUMCHANNELS; i++){
-                    if (commChannels[i]!=null){
-                        tempSyncCode = commChannels[i].readLongData(Clock.LOGSYNCDATA);  
-                        if (tempSyncCode != SUBNET_SYNCED_CODE){
-                            sensorNetSynced = false;
-                        }
-                    }
-                    delay(100);
-                }                
-            }
-            debugMessage("Synced",0,1);
-            debugMessage(Long.toString(clock.getDriftRoot()),4000);
+            //initialize some of the matrices that will be used in 
+            // the distributed Algorithm class
+            distAlgo.initialize(numNodes);
             
-            //send data to its master to complete synchronization
-            if (commChannels[SLAVECHANNEL]!=null){
-                commChannels[SLAVECHANNEL].writeLongData(SUBNET_SYNCED_CODE, Clock.LOGSYNCDATA);
-            }
-        }        
-         
-        for (int i=0;i<NUMCHANNELS;i++){
-            if (commChannels[i] != null){               
-                commChannels[i].start();
-                debugMessage("Ch" + i + " started",0,3,1000); 
-            }
-        }        
-        
-        debugMessage("Communicating",1000);         
-        commStatus = isCommunicating(commChannels);
-        
-        //perform average consensus
-        distAlgo.LFICC();
-        
-        //wait for all connections to close
-        while(commStatus){
-            commStatus = isCommunicating(commChannels);            
-            delay(5);            
-        }
-        
-        debugMessage("Saving");
-        //save data and close connections        
-        for (int i=0;i<NUMCHANNELS;i++){
-            if (commChannels[i] != null){
-                try{
-                    saveAndClose(commChannels[i]);
-                }catch(IOException ioe){
-                    debugMessage("Save Error",0,1,1000);
+            // create a perron matrix based on the adjacency matrix 
+            // and the epsilon value
+            distAlgo.createWeightMatrix(adjacencyMatrix, epsilon);
+            
+            //initialize the nodes
+            initNodes(adjacencyMatrix, rootNode, initNodeValues);            
+            
+            //synchronize the network
+            clock.synchronizeNetwork();                 
+            //start a thread for each active channel
+            for (int i=0;i<NUMCHANNELS;i++){
+                if (activeNeighbor[i]){               
+                    commChannels[i].start();
+                    debugMessage("Ch" + i + " started",0,3,1000); 
                 }
-            }
-        }       
+            }        
+            //perform average consensus
+            distAlgo.LFICC(epsilon2, beta, gamma);        
+            
+            boolean commStatus = true;       
+            //wait for all connections to stop communicating
+            while(commStatus){
+                commStatus = isCommunicating();            
+                delay(5);            
+            }        
+            //save and close
+            saveAndClose();
+        }
         debugMessage("Exiting");     
     }
+    
+    
+    /**
+     * checkTopology checks for the properties of the network adjacency matrix
+     * nt for the following: 1. if it is a square matrix, if it has correct
+     * number of masters (<=3) and slaves (<=1), if root node is specified 
+     * properly, and if the matrix is symmetric. returns true if all reqmts are
+     * met and false otherwise
+     */
+    public static boolean checkTopology(double [][] nt, int r_id){        
+          
+        if (nt.length != nt[0].length){
+            debugMessage("Top Matrix is not Square",1000);
+            return false;
+        }      
+        numNodes = nt.length;      
+        debugMessage("Network Size: "+numNodes,1000);
+        if (r_id > numNodes){
+            debugMessage("Root node does not exist",1000);
+            return false;
+        }       
+        for (int i=0;i<numNodes;i++){
+            if (nt[r_id][i] == -1){
+                debugMessage("Root cannot be a slave",1000);
+                return false;              
+            }            
+        }  
+        for (int i=0;i<numNodes;i++){
+            int numMasterCh = 0;
+            int numSlaveCh = 0;
+            for (int j=0;j<numNodes;j++){
+                if ((nt[i][j] + nt[j][i]) != 0){
+                    debugMessage("Master/Slave Channel mismatch",1000);
+                    return false;              
+                }
+                if (nt[i][j] > 0){
+                    numMasterCh += 1;             
+                }
+                if (nt[i][j] < 0){
+                    numSlaveCh += 1;             
+                }
+            }
+            if (numMasterCh > MAXMASTERCHANNELS){
+                debugMessage("Too many master Channels",1000);
+                return false;              
+            }
+            if (numSlaveCh > MAXSLAVECHANNELS){
+                debugMessage("Too many slave Channels",1000);
+                return false;              
+            }
+        }        
+        return (true);        
+    }
+    
+    /**
+     * initNodes initializes the nodes based on the network topology set
+     * gets the name of the node and creates master or slave connections
+     * according to the topology. Note that the names of each Node should follow
+     * the format "Node"+ID. ID should not be greater than the total number of 
+     * nodes
+     */
+    public static void initNodes(double [][] nt, int r_id, double [] initNodeVals){
+        //construct the communication topology
+        String myName = Bluetooth.getName();  
+        nodeID = Integer.valueOf(myName.substring(4));
+        debugMessage("Node ID: "+ Integer.toString(nodeID),1000);
+        if (nodeID > (numNodes - 1)){            
+            debugMessage("Node ID should be ", 0,1,10);
+            debugMessage("less than " + numNodes, 0,2,1000);
+        }
+        //initialize the node values
+        distAlgo.setNodeVal(initNodeVals[nodeID]);       
         
+        int currChannel  = 0;        
+        //first check if this node is a slave node and create the slave connection
+        for (int j=0;j<numNodes;j++){
+            if (nt[nodeID][j] == -1.0){                
+                StringBuilder temp = new StringBuilder();
+                temp.append("Node");
+                temp.append(j);
+                String nodeName = temp.toString();                
+                commChannels[currChannel] = setAsSlave(nodeName, j, 2);
+            }
+        }        
+        //then create the master channels
+        currChannel +=1;
+        for (int j=0;j<numNodes;j++){
+            if (nt[nodeID][j] == 1){                
+                StringBuilder temp = new StringBuilder();
+                temp.append("Node");
+                temp.append(j);
+                String nodeName = temp.toString();
+                commChannels[currChannel] = setAsMaster(nodeName, currChannel, j, 2);
+                currChannel += 1;
+            }
+        }
+        //if this node is the root set it as the root
+        if (nodeID == r_id){
+            setRoot();
+            //set time to start communication
+            STARTTIME = System.currentTimeMillis() + 20000;
+        } 
+    }
+    
+    /**
+     * setAsMaster creates a channel where this node is the master node to the
+     * slave node identified by the string slave.
+     * Other functions of this method are also to
+     * set this channel as active, openIOStreams to communicate data thrrough
+     * this channel, create log file to write and save data and to set the 
+     * priority of this channel's thread
+     */
+    
     public static CommChannel setAsMaster(String slave, int ch_id, int n_id, int priority){
         CommChannel m = new CommMaster(slave, ch_id);
         activeNeighbor[ch_id] = true;
         m.setNeighborID(n_id);
-        m.connect(slave);
-        debugMessage("Connected!!",2000);
+        m.connect(slave);        
         m.openIOStreams();
-        debugMessage("IOS created");
         String fileName;
         fileName = slave + ".txt";
         m.startDataLog(fileName);
-        debugMessage("file created");
         m.setPriority(priority); 
-        debugMessage("priority set");
+        debugMessage("Connected!!",2000);
         return m;
     }
+    
+    /*
+     * setAsSlave creates a channel where this node is the slave node
+     * Other functions of this method are also to
+     * set this channel as active, openIOStreams to communicate data thrrough
+     * this channel, create log file to write and save data and to set the 
+     * priority of this channel's thread
+     */
     public static CommChannel setAsSlave(String slave, int n_id, int priority){
         CommChannel s = new CommSlave(slave);
         activeNeighbor[0] = true;
         s.setNeighborID(n_id);
         s.connect();
-        debugMessage("Connected!!");
         s.openIOStreams();
-        debugMessage("IOS created");
         String fileName;
         fileName = slave + ".txt";
         s.startDataLog(fileName);
-        debugMessage("file created");
         s.setPriority(priority);
-        debugMessage("priority set");
+        debugMessage("Connected!!",2000);
         return s;
-    }    
-    public static void saveAndClose(CommChannel c) throws IOException{
-        c.saveData();
-        c.stopDataLog();
-        c.closeIOStreams();
-        c.disconnect();
-    }    
+    }
+    
+    /*
+     * saveAndClose saves the Data, stops the data logger, closes IOStreams 
+     * and disconnects the channel 
+     */
+    public static void saveAndClose(){
+        
+        debugMessage("Saving");
+        //save data and close connections        
+        for (int i=0;i<NUMCHANNELS;i++){
+            if (activeNeighbor[i]){
+                try{
+                    commChannels[i].saveData();
+                    commChannels[i].stopDataLog();
+                    commChannels[i].closeIOStreams();
+                    commChannels[i].disconnect();                    
+                }catch(IOException ioe){
+                    debugMessage("Save Error",0,1,1000);
+                }
+            }
+        }
+        
+    }  
+    
+    /*
+     * setRoot() sets this node as the root node. All the clocks are synchronized
+     * to the root node's clock.
+     */
     public static void setRoot(){
         isRootNode = true;   
-        initStatus = true;
         clock.setSyncStatus(true);
-    }    
+    } 
+    
     public static boolean isRoot(){
         return(isRootNode);
     }
     
-    public static boolean isCommunicating(CommChannel[] channels){
+    /* isCommunicating() checks if the thread for each channel is still alive
+     * the threadRunning variable in commchannels is cleared once the threads 
+     * stop. This method checks only the active channels (whose value is not 
+     * null.
+     * */
+    public static boolean isCommunicating(){
         
         boolean communicating = false;        
         for (int i=0;i<NUMCHANNELS;i++){
-            if (channels[i] != null){
-                if (channels[i].isRunning()){
+            if (activeNeighbor[i]){
+                if (commChannels[i].isRunning()){
                     communicating = true;
                 }
             }
@@ -224,11 +304,9 @@ public class Node {
         } catch (InterruptedException ex) {            
         }
     }    
-    public static void debugMessage(String s, int delay){
-        
+    public static void debugMessage(String s, int delay){        
             LCD.clear();
-            debugMessage(s,0,0,delay);
-        
+            debugMessage(s,0,0,delay);        
     }    
     public static void debugMessage(String s, int col, int row){
         debugMessage(s,col,row,500);
@@ -243,9 +321,5 @@ public class Node {
         } catch (InterruptedException ex) {
             //error    
         }
-    }
-    
-     public static boolean isInitialized(){
-        return initStatus;
     }
 }

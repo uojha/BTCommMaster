@@ -4,42 +4,70 @@
  */
 package org.lejos.BTCommunication;
 
+import lejos.util.Matrix;
 /**
  *
  * @author Unnati
  */
 public class DistAlgorithm {
-    
-    final static double ONE3RD   = 0.333333333333333333333;
-    final static double TWO3RD   = 0.666666666666666666666;
-    final static double ONE3RD_P = 0.333333333333333333334;
-    private volatile int[]  timeStep = {0,0,0,0,0};
-    private double[] neighborVal = {0,0,0,0,0};
+    private volatile int[]  timeStep;
+    private double[] neighborVal;;
     private volatile int currentStep = 1;
     private boolean allDataReceived = false;
-//    private double [][] P = {   {ONE3RD, ONE3RD_P,  ONE3RD,  0           },
-//                                {ONE3RD_P, TWO3RD,  0,          0           },
-//                                {ONE3RD, 0,          ONE3RD,  ONE3RD_P   },
-//                                {0,         0,          ONE3RD_P,  TWO3RD   }};
-    
-//    private double [][] P = {   {0.4,   0.3,  0.3,  0   },
-//                                {0.3,   0.7,  0,    0   },
-//                                {0.3,   0,    0.4,  0.3 },
-//                                {0,     0,    0.3,  0.7 }};
-//    
-    private double [][] P = {   { 0.6,	0.2,	0.2,	0,	0},
-                                { 0.2,	0.8,	0,	0,	0},
-                                { 0.2,	0,	0.4,	0.2,	0.2},
-                                { 0,	0,	0.2,	0.8,	0},
-                                { 0,	0,	0.2,	0,	0.8 }};
-    
-    
+    private double [][] W;    
     private volatile double PG;
-    private double PD = 850;
+    
 
     public DistAlgorithm(){
         
     }
+    
+    public void initialize(int n){
+        //initialize some variables based on the parameters
+        W = new double[n][n];
+        neighborVal = new double[n];
+        timeStep = new int [n];
+        for (int i=0;i<n;i++){
+            neighborVal[i] = 0;
+            timeStep[i] = 0;
+        }
+    }
+    
+    private Matrix  getLaplacian(double [][] A){
+        double x;
+        double [][] B = new double[Node.numNodes][Node.numNodes];
+        for(int i=0;i<Node.numNodes;i++){
+            double sum = 0;
+            for(int j=0;j<Node.numNodes;j++){
+                x = Math.abs(A[i][j]);
+                sum += x;
+                B[i][j] = Math.abs(A[i][j])*(-1);
+            }
+            B[i][i] = sum;
+        }
+        Matrix L = new Matrix(B);
+        return L;      
+    }
+    
+    public void createWeightMatrix(double [][] Aorig, double epsilon){
+        double [][] A = new double[Node.numNodes][Node.numNodes];
+        for (int cc = 0;cc<Node.numNodes;cc++){
+            System.arraycopy(Aorig[cc], 0, A[cc], 0, Node.numNodes);
+        }        
+        Matrix L = getLaplacian(A);
+        Matrix PP;
+        //create identity Matrix
+        Matrix identityM = Matrix.identity(Node.numNodes,Node.numNodes);
+        L.timesEquals(epsilon);
+        //L.times(epsilon);
+        PP = identityM.minus(L);   
+        for(int i=0;i<Node.numNodes;i++){
+            for(int j=0;j<Node.numNodes;j++){
+                W[i][j] = PP.get(i, j);
+            }
+        }
+    }
+    
     
     public void averageConsensus(){
         double nodeVal;
@@ -48,12 +76,11 @@ public class DistAlgorithm {
             //wait until the Node has received this step's data from all channels
             while(!isAllDataReceived()){
                 Node.delay(5);
-            }
-            
+            }            
             //update the Node's value - calculations go here
             nodeVal = 0;
-            for (int i=0;i<Node.NUMNODES;i++){
-                nodeVal += P[Node.nodeID][i]*neighborVal[i];
+            for (int i=0;i<Node.numNodes;i++){
+                nodeVal += W[Node.nodeID][i]*neighborVal[i];
             }
             neighborVal[Node.nodeID] = nodeVal;
             //update the iteration number
@@ -65,19 +92,13 @@ public class DistAlgorithm {
     }
     
     /*
-     * Leader followe ICC
+     * Leader follower ICC
      */
-    public void LFICC(){
-        double nodeVal;
-        double epsilon = 0.001;  //used same value from paper
+    public void LFICC(double epsilon, double [] beta, double [] gamma){
+        double PD = 850;
+        double nodeVal;        
         double deltaP;
-        //using same values as paper
-        //double [] alpha = {561, 310,78,561,78};
-        double [] beta = {7.92, 7.85,7.8,7.92,7.8};
-        double [] gamma = {0.001562,0.00194,0.00482,0.001562,0.00482};
-        double [] P_Gi = new double[Node.NUMNODES];
-        
-        
+        double [] P_Gi = new double[Node.numNodes];
         
         //Node variable commcount is set as the iteration termination condition
         while (currentStep <= Node.COMMCOUNT){
@@ -88,14 +109,14 @@ public class DistAlgorithm {
             
             //update the Node's value - calculations go here
             nodeVal = 0;
-            for (int i=0;i<Node.NUMNODES;i++){
-                nodeVal += P[Node.nodeID][i]*neighborVal[i];
+            for (int i=0;i<Node.numNodes;i++){
+                nodeVal += W[Node.nodeID][i]*neighborVal[i];
             }
             //this is the only difference.
             int nnodes;
             if (Node.isRootNode){ 
                 PG = 0;
-                for (nnodes=0;nnodes<Node.NUMNODES;nnodes++){                   
+                for (nnodes=0;nnodes<Node.numNodes;nnodes++){                   
                    P_Gi[nnodes] = (nodeVal - beta[nnodes])/(2.0*gamma[nnodes]);
                    //Node.debugMessage(Double.toString(nodeVal));
                    PG = PG + P_Gi[nnodes];//total power generated
@@ -110,8 +131,7 @@ public class DistAlgorithm {
             //update the iteration number
             updateCurrentStep();
             clearAllDataReceived();
-            Node.delay(10);
-            
+            Node.delay(10);            
         }
     }
     
@@ -131,23 +151,13 @@ public class DistAlgorithm {
         return allDataReceived;
     }
 
+    public double getW(int i, int j) {
+        return W[i][j];
+    }   
+    
     public double getPG() {
         return PG;
-    }
-
-    public void setPG(double PG) {
-        this.PG = PG;
-    }
-
-    public double getPD() {
-        return PD;
-    }
-
-    public void setPD(double PD) {
-        this.PD = PD;
-    }
-
-    
+    }  
     
     public double getNodeVal() {
         return neighborVal[Node.nodeID];
@@ -177,8 +187,5 @@ public class DistAlgorithm {
     private void updateCurrentStep() {
         this.currentStep = this.currentStep+1;        
     }
-    
-    
-    
     
 }

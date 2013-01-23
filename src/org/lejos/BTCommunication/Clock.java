@@ -10,6 +10,8 @@ package org.lejos.BTCommunication;
  */
 public class Clock {
     public final static boolean LOGSYNCDATA = false;
+
+
     public boolean isSyncing = false;
     
     private boolean syncStatus = Node.SYNCSTATUS_NOTSYNCED;   
@@ -25,6 +27,43 @@ public class Clock {
     public Clock(){
     }
     
+        /*
+     * Synchronizes the network clock with the root node's clock
+     */
+    public void synchronizeNetwork() {
+        boolean sensorNetSynced = false;
+        if (Node.SYNCHRONIZE) {
+            boolean temp = false;
+            if (getSyncStatus() == Node.SYNCSTATUS_NOTSYNCED) {
+                waitForSync(Node.commChannels[Node.SLAVECHANNEL]);
+            }
+            for (int i = Node.MASTERCHANNEL1; i < Node.NUMCHANNELS; i++) {
+                if (Node.activeNeighbor[i]) {
+                    temp = initiateSync(Node.commChannels[i], i);
+                }
+            }
+            //wait for this node's subnet to sync
+            long tempSyncCode;
+            while (!sensorNetSynced) {
+                sensorNetSynced = true;
+                Node.debugMessage("Syncing...");
+                for (int i = Node.MASTERCHANNEL1; i < Node.NUMCHANNELS; i++) {
+                    if (Node.activeNeighbor[i]) {
+                        tempSyncCode = Node.commChannels[i].readLongData(LOGSYNCDATA);
+                        if (tempSyncCode != Node.SUBNET_SYNCED_CODE) {
+                            sensorNetSynced = false;
+                        }
+                    }
+                    Node.delay(100);
+                }
+            }
+            Node.debugMessage("Synced", 0, 1);
+            Node.debugMessage(Long.toString(getDriftRoot()), 4000);
+            if (Node.activeNeighbor[Node.SLAVECHANNEL]) {
+                Node.commChannels[Node.SLAVECHANNEL].writeLongData(Node.SUBNET_SYNCED_CODE, LOGSYNCDATA);
+            }
+        }
+    }
     
     /**
      * Method that initiates Synchronization to slave channel ch
@@ -87,6 +126,9 @@ public class Clock {
             ch.delay(5);
         }
     }
+    
+    
+    
  //SYNCHRONIZATION METHODS
     /**
      * Proposed by Ganeriwal et al.

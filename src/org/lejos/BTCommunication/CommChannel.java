@@ -277,8 +277,6 @@ public class CommChannel extends Thread {
         if (Node.DEBUG) {
             Node.debugMessage("In Channel Run");
         }
-    }
-        
-        
+    }   
 }
 
