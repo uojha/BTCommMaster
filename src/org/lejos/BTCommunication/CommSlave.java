@@ -1,5 +1,6 @@
 package org.lejos.BTCommunication;
 import lejos.nxt.comm.Bluetooth;
+import lejos.nxt.comm.NXTConnection;
 
 /**
  *
@@ -11,19 +12,39 @@ public class CommSlave extends CommChannel{
         
     }
     
-    public CommSlave(String n){
-        super(n,0);              
+    public CommSlave(String n, int n_id){
+        super(n,0, n_id);              
     }
     
     @Override
     public int connect(){
-        super.connect();        
-        while (!connected){    
-            Node.debugMessage("Waiting...");
-            nodeConnection = Bluetooth.waitForConnection();
-            delay(10);       
-            connected = true;
-        }         
+        super.connect();  
+        int waitTime = 1;
+        nodeConnection = null;
+        boolean allMasterConnectionDone = false;
+        while (nodeConnection == null){    
+            Node.debugMessage("Waiting..." + waitTime);
+            if (Node.isRootNode){
+                allMasterConnectionDone = true;
+                for (int ch = Node.MASTERCHANNEL1; ch < Node.MASTERCHANNEL3; ch++){
+                    if (Node.activeNeighbor[ch]){
+                        if (!Node.commChannels[ch].connected){
+                            allMasterConnectionDone = false;
+                        }
+                    }
+                }
+                if (allMasterConnectionDone){
+                    nodeConnection = Bluetooth.waitForConnection();
+                }else{
+                    nodeConnection = Bluetooth.waitForConnection(7000, NXTConnection.PACKET);
+                }
+            }else{
+                nodeConnection = Bluetooth.waitForConnection();
+            }            
+            delay(100);       
+            waitTime += 1;
+        }   
+        connected = true;
         Node.debugMessage("Connected...",0,1);
         return 1;
     }
@@ -32,9 +53,22 @@ public class CommSlave extends CommChannel{
     public void run() {        
         long n, deltaT, startTime;
         threadRunning = true;
-        double data_in = 0.0f;
+        double data_in;  
+        connected = false;
+        if (Node.isRootNode){
+            Node.activeNeighbor[id] = true;
+            connect();        
+            openIOStreams();
+            String fileName;
+            fileName = getNodeName() + ".txt";
+            startDataLog(fileName);
+            setPriority(4); 
+            Node.debugMessage("Im a Slave!!",1000);
+        }
         
-        Node.debugMessage("Starting Slave",1000);
+        while (Node.clock.getSyncStatus() !=  Node.SYNCSTATUS_SYNCED){
+            delay(50);
+        }
         
         deltaT = Node.DELTA_T;
         startTime = Node.STARTTIME;
@@ -66,6 +100,9 @@ public class CommSlave extends CommChannel{
             //wait for exact time to send the data
             while (Node.distAlgo.getTimeStep(id) == (Node.distAlgo.getCurrentStep())){
                 delay(5);
+            }
+            if (Node.isRootNode){
+                logNeighbor(Node.distAlgo.getPG());
             }
             Node.debugMessage(Integer.toString(Node.distAlgo.getCurrentStep()),0,id+1,20);
         }

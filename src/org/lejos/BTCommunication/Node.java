@@ -24,8 +24,11 @@ public class Node {
     final static long SUBNET_SYNCED_CODE = -101;
     final static boolean SYNCSTATUS_SYNCED = true;
     final static boolean SYNCSTATUS_NOTSYNCED = false;    
+    final static boolean OK = true;
+    final static boolean NOT_OK = false;  
     
     final static int SYNCWINDOW = 20;
+    final static int SYNCWAIT = 100000;
     final static boolean DEBUG = true;    
     final static boolean SYNCHRONIZE = true;         
     final static int COMMCOUNT = 150;     
@@ -40,18 +43,19 @@ public class Node {
     public static CommChannel [] commChannels = {null, null,null,null};
     public static Clock clock = new Clock();
     public static DistAlgorithm distAlgo = new DistAlgorithm();
-    
+    public static int rootNode = 0;                           //specify the root node's id
 
     public static void main(String[] args) throws InterruptedException {               
         //Use topology matrix to set the network topology. 
         //Use 1 if the node is the master and -1 if it is the slave
-        double [][] adjacencyMatrix =   {   { 0, 1, 1},
-                                            {-1, 0, 0},
-                                            {-1, 0, 0}
+        double [][] adjacencyMatrix =   {   { 0, 1, 0, 0, -1},
+                                            {-1, 0, 1, 0, 0},
+                                            {0, -1, 0, 1, 0},
+                                            {0, 0, -1, 0, 1},
+                                            {1, 0, 0, -1, 0}
                                         };        
         
-        double [] initNodeValues = {9,9,9};         //specify the initial value of the nodes    
-        int rootNode = 0;                           //specify the root node's id      
+        double [] initNodeValues = {9,9,9,9,9};         //specify the initial value of the nodes        
         double epsilon = 0.25;                      //specify the value of epsilon     
         double epsilon2 = 0.001;                    //set epsilon value for deltaP in ICC
         //using same values as paper
@@ -74,11 +78,27 @@ public class Node {
             initNodes(adjacencyMatrix, rootNode, initNodeValues);            
             
             //synchronize the network
+            
+            //boolean networkStatus = NOT_OK;
+            debugMessage("BEFORE SYNC",1000);
+            if (isRootNode){
+                while(!commChannels[0].connected){
+                    delay(200);
+                }
+            }
+            
+            debugMessage("START SYNC",3000); 
             clock.synchronizeNetwork();                 
+            
             //start a thread for each active channel
             for (int i=0;i<NUMCHANNELS;i++){
-                if (activeNeighbor[i]){               
-                    commChannels[i].start();
+                if (activeNeighbor[i]){
+                    if (i == 0 && isRootNode){
+                        delay(50);
+                    }else{
+                        commChannels[i].start();
+                        delay(50);
+                    }
                     debugMessage("Ch" + i + " started",0,3,1000); 
                 }
             }        
@@ -117,12 +137,13 @@ public class Node {
             debugMessage("Root node does not exist",1000);
             return false;
         }       
-        for (int i=0;i<numNodes;i++){
+        /*for (int i=0;i<numNodes;i++){
             if (nt[r_id][i] == -1){
                 debugMessage("Root cannot be a slave",1000);
                 return false;              
             }            
         }  
+        * */
         for (int i=0;i<numNodes;i++){
             int numMasterCh = 0;
             int numSlaveCh = 0;
@@ -176,10 +197,18 @@ public class Node {
                 StringBuilder temp = new StringBuilder();
                 temp.append("Node");
                 temp.append(j);
-                String nodeName = temp.toString();                
-                commChannels[currChannel] = setAsSlave(nodeName, j, 2);
+                String nodeName = temp.toString();  
+                if (nodeID == r_id){
+                    //NEEDS DOCUMENTATION
+                    setRoot();
+                    commChannels[currChannel] = new CommSlave(nodeName, j);
+                    commChannels[currChannel].start();
+                }else{
+                    commChannels[currChannel] = setAsSlave(nodeName, j, 2);
+                }
             }
-        }        
+        }     
+        delay(3000);
         //then create the master channels
         currChannel +=1;
         for (int j=0;j<numNodes;j++){
@@ -188,15 +217,14 @@ public class Node {
                 temp.append("Node");
                 temp.append(j);
                 String nodeName = temp.toString();
-                commChannels[currChannel] = setAsMaster(nodeName, currChannel, j, 2);
+                commChannels[currChannel] =  setAsMaster(nodeName, currChannel, j, 2);
                 currChannel += 1;
             }
         }
         //if this node is the root set it as the root
-        if (nodeID == r_id){
-            setRoot();
+        if (nodeID == r_id){            
             //set time to start communication
-            STARTTIME = System.currentTimeMillis() + 20000;
+            STARTTIME = System.currentTimeMillis() + SYNCWAIT;
         } 
     }
     
@@ -210,7 +238,7 @@ public class Node {
      */
     
     public static CommChannel setAsMaster(String slave, int ch_id, int n_id, int priority){
-        CommChannel m = new CommMaster(slave, ch_id);
+        CommChannel m = new CommMaster(slave, ch_id, n_id);
         activeNeighbor[ch_id] = true;
         m.setNeighborID(n_id);
         m.connect(slave);        
@@ -231,7 +259,7 @@ public class Node {
      * priority of this channel's thread
      */
     public static CommChannel setAsSlave(String slave, int n_id, int priority){
-        CommChannel s = new CommSlave(slave);
+        CommChannel s = new CommSlave(slave, n_id);
         activeNeighbor[0] = true;
         s.setNeighborID(n_id);
         s.connect();

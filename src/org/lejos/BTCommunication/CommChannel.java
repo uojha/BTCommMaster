@@ -34,10 +34,11 @@ public class CommChannel extends Thread {
     public CommChannel(){        
         
     }    
-    public CommChannel(String n, int ch_id){
+    public CommChannel(String n, int ch_id, int n_id){
         super(n);        
         nodeName = n;   
         id = ch_id;
+        neighborID = n_id;
     }    
     public boolean isRunning(){
         return threadRunning;

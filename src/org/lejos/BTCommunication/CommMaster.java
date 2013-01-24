@@ -5,6 +5,7 @@
 package org.lejos.BTCommunication;
 
 import lejos.nxt.comm.Bluetooth;
+import lejos.nxt.comm.NXTConnection;
 
 /**
  *
@@ -15,8 +16,8 @@ public class CommMaster extends CommChannel{
     public CommMaster(){          
     }
     
-    public CommMaster(String n, int ch_id){
-        super(n,ch_id);            
+    public CommMaster(String n, int ch_id, int n_id){
+        super(n,ch_id, n_id);            
     }
     
     public void synchronize(){
@@ -45,29 +46,41 @@ public class CommMaster extends CommChannel{
             }
             return 0;
         } else{
-            nodeConnection = Bluetooth.connect(node);
-            byte[] status = Bluetooth.getConnectionStatus();
-            if (status == null ){
-                nodeConnection.close();
-                if (Node.DEBUG) {
-                    Node.debugMessage("Not Connected ",0,0,0);
-                    Node.debugMessage("Exiting",0,1);
-                }
-                return 0;          
-            }else{
-                if (Node.DEBUG) {
-                    Node.debugMessage("Connected");
-                }  
-                connected = true;
-                return 1;
+            int connectTime = 1;
+            nodeConnection = null;
+            while (nodeConnection == null){
+                Node.debugMessage("Trying... " + Integer.toString(connectTime),0,3);
+                nodeConnection = Bluetooth.connect(nodeName, NXTConnection.PACKET);
+                connectTime += 1;
+                
+                /*byte[] status = Bluetooth.getConnectionStatus();
+                if (status == null){
+                    nodeConnection.close();
+                    if (Node.DEBUG) {
+                        Node.debugMessage("Not Connected ",0,0,0);
+                        Node.debugMessage("Exiting Connect",0,1);
+                    }
+                    //return 0;          
+                }else{                      
+                }*/
+                delay(100);
             }
+            if (Node.DEBUG) {
+                Node.debugMessage("Connected");
+            }
+            connected = true;
+            return 1;
         }
     }
 
     
     @Override
     public void run() {
-        threadRunning = true;
+        threadRunning = true;       
+         while (Node.clock.getSyncStatus() !=  Node.SYNCSTATUS_SYNCED){
+            delay(50);
+        }
+        
         long deltaT = Node.DELTA_T;   //500 ms
         long startTime = Node.STARTTIME;
         double data_in;

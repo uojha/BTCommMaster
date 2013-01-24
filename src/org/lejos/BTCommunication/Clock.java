@@ -39,7 +39,9 @@ public class Clock {
             }
             for (int i = Node.MASTERCHANNEL1; i < Node.NUMCHANNELS; i++) {
                 if (Node.activeNeighbor[i]) {
-                    temp = initiateSync(Node.commChannels[i], i);
+                    if (Node.commChannels[i].neighborID != Node.rootNode){
+                        temp = initiateSync(Node.commChannels[i], i);
+                    }
                 }
             }
             //wait for this node's subnet to sync
@@ -49,9 +51,12 @@ public class Clock {
                 Node.debugMessage("Syncing...");
                 for (int i = Node.MASTERCHANNEL1; i < Node.NUMCHANNELS; i++) {
                     if (Node.activeNeighbor[i]) {
-                        tempSyncCode = Node.commChannels[i].readLongData(LOGSYNCDATA);
-                        if (tempSyncCode != Node.SUBNET_SYNCED_CODE) {
-                            sensorNetSynced = false;
+                        //we should not do this if the neighbor is the root. Root is already synced
+                        if (Node.commChannels[i].neighborID != Node.rootNode){
+                            tempSyncCode = Node.commChannels[i].readLongData(LOGSYNCDATA);
+                            if (tempSyncCode != Node.SUBNET_SYNCED_CODE) {
+                                sensorNetSynced = false;
+                            }
                         }
                     }
                     Node.delay(100);
@@ -59,7 +64,7 @@ public class Clock {
             }
             Node.debugMessage("Synced", 0, 1);
             Node.debugMessage(Long.toString(getDriftRoot()), 4000);
-            if (Node.activeNeighbor[Node.SLAVECHANNEL]) {
+            if (Node.activeNeighbor[Node.SLAVECHANNEL] && !(Node.isRootNode)) {
                 Node.commChannels[Node.SLAVECHANNEL].writeLongData(Node.SUBNET_SYNCED_CODE, LOGSYNCDATA);
             }
         }
